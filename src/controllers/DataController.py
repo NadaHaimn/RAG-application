@@ -20,7 +20,7 @@ class DataController(BaseController):
             return False , ResponseSignal.FILE_SIZE_EXCEEDED.value
 
         return True , ResponseSignal.FILE_VALIDATION_SUCCESS.value
-
+    
     
     def generate_unique_filepath(self , orig_file_name: str , project_id: str):
 
