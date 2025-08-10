@@ -6,6 +6,7 @@ from controllers import DataController , ProjectController
 import aiofiles
 from models import ResponseSignal
 import logging
+from .schemes.data import ProcessRequest
 
 
 logger = logging.getLogger('uvicorn.error')
@@ -25,13 +26,13 @@ async def upload_data(project_id: str , file:UploadFile,
     if not is_valid:
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
-            content={"message": result_signal}
+            content={"Signal": result_signal}
         )
     
 
     # Get the project path
     project_dir_path = ProjectController().get_project_path(project_id=project_id)
-    file_path = data_controller.generate_unique_filename(
+    file_path , file_id= data_controller.generate_unique_filepath(
         orig_file_name=file.filename,
         project_id=project_id
     )
@@ -47,11 +48,12 @@ async def upload_data(project_id: str , file:UploadFile,
 
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
-            content={"message": ResponseSignal.FILE_UPLOAD_FAILED.value }
+            content={"Signal": ResponseSignal.FILE_UPLOAD_FAILED.value }
         )
 
     return JSONResponse(
             content={
-                "message": ResponseSignal.FILE_UPLOAD_SUCCESS.value
+                "Signal": ResponseSignal.FILE_UPLOAD_SUCCESS.value ,
+                "FileId": file_id
             }
         )
