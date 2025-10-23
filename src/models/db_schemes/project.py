@@ -19,3 +19,18 @@ class Project(BaseModel):
             ObjectId: str
         }
     }
+    
+    @classmethod
+    def get_indexes(cls):
+        
+        return [
+            {
+                "key":[
+                    ("project_id",1)
+                ],
+                "name": "project_id_index_1",
+                "unique":True
+            }
+        ]
+#project_object = Project(project_id='test_project')
+#project_object.validate_project_id()
