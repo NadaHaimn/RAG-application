@@ -41,6 +41,7 @@ class ProcessController(BaseController):
         loader = self.get_file_loader(file_id=file_id)
         if loader:
             return loader.load()
+        return None
         
     def process_file_content(self, file_content: list, file_id: str,
                             chunk_size: int=100, overlap_size: int=20):
