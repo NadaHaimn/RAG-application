@@ -4,5 +4,6 @@
     "cSpell.words": [
         "fastapi",
         "uvicorn"
-    ]
+    ],
+    "python.languageServer": "Pylance"
 }
