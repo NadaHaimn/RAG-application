@@ -22,6 +22,16 @@ class GeminiProvider(LLMInterface):
         # تكوين عميل Gemini
         genai.configure(api_key=self.api_key)
         self.client = genai
+        
+        self.client.safety_settings = {
+            "HARASSMENT": "BLOCK_NONE",
+            "HATE_SPEECH": "BLOCK_NONE",
+            "SEXUAL": "BLOCK_NONE",
+            "DANGEROUS": "BLOCK_NONE",
+            "VIOLENCE": "BLOCK_NONE"
+        }
+        
+        self.enums =  GeminiEnums
         self.logger = logging.getLogger(__name__)
     
     def set_generation_model(self, model_id: str):
@@ -38,67 +48,74 @@ class GeminiProvider(LLMInterface):
         return text[:self.default_input_max_characters].strip()
     
     def generate_text(self, prompt: str, chat_history: list = [], max_output_tokens: int = None,
-                      temperature: float = None):
+                        temperature: float = None):
         """توليد النص باستخدام Gemini"""
-        
+
         if not self.client:
             self.logger.error("Gemini client was not set")
             return None
-        
+
         if not self.generation_model_id:
             self.logger.error("Generation model for Gemini was not set")
             return None
-        
-        # استخدام القيم الافتراضية إذا لم يتم توفيرها
-        max_output_tokens = max_output_tokens if max_output_tokens else self.default_generation_max_output_tokens
-        temperature = temperature if temperature else self.default_generation_temperature
-        
+
+        max_output_tokens = max_output_tokens or self.default_generation_max_output_tokens
+        temperature = temperature or self.default_generation_temperature
+
         try:
-            # تهيئة النموذج
             model = self.client.GenerativeModel(self.generation_model_id)
-            
-            # تكوين إعدادات التوليد
-            generation_config = genai.types.GenerationConfig(
-                max_output_tokens=max_output_tokens,
-                temperature=temperature
-            )
-            
-            # إذا كان هناك تاريخ محادثة، نقوم بتحويله لتنسيق Gemini
+
+            generation_config = {
+                "max_output_tokens": max_output_tokens,
+                "temperature": temperature
+            }
+
+            # تجهيز تاريخ المحادثة
+            history = []
             if chat_history:
-                gemini_messages = []
                 for msg in chat_history:
-                    # تحويل الأدوار من تنسيق النظام إلى تنسيق Gemini
-                    if msg.get("role") == GeminiEnums.USER.value:
-                        role = GeminiEnums.USER.value
-                    else:
-                        role = GeminiEnums.MODEL.value
-                    
+                    role = "user" if msg.get("role") == GeminiEnums.USER.value else "model"
                     content = msg.get("content") or msg.get("text") or ""
-                    if content.strip():  # نتأكد أن المحتوى ليس فارغاً
-                        gemini_messages.append({"role": role, "parts": [content]})
-                
-                # بدء محادثة مع التاريخ
-                chat = model.start_chat(history=gemini_messages)
-                response = chat.send_message(
-                    self.process_text(prompt),
-                    generation_config=generation_config
-                )
+                    if content.strip():
+                        history.append({"role": role, "parts": [content]})
+
+            # إرسال الطلب
+            if history:
+                chat = model.start_chat(history=history)
+                response = chat.send_message(self.process_text(prompt), generation_config=generation_config)
             else:
-                # محادثة جديدة بدون تاريخ
-                response = model.generate_content(
-                    self.process_text(prompt),
-                    generation_config=generation_config
-                )
-            
-            if not response or not response.text:
-                self.logger.error("Error while generating text with Gemini")
+                response = model.generate_content(self.process_text(prompt), generation_config=generation_config)
+
+            # التأكد من finish_reason
+            candidate = response.candidates[0] if response.candidates else None
+            if candidate and hasattr(candidate, "finish_reason"):
+                if candidate.finish_reason != 1:  # 1 = SUCCESS
+                    self.logger.error(f"Generation blocked. Finish reason: {candidate.finish_reason}")
+                    return "The model could not generate a response due to safety filters."
+
+            # استخراج النص بأمان
+            if not response:
+                self.logger.error("Gemini returned no response object")
                 return None
-            
-            return response.text
-            
+
+            if not hasattr(response, "candidates") or not response.candidates:
+                self.logger.error("Gemini returned no candidates")
+                return None
+
+            parts = response.candidates[0].content.parts
+            if not parts:
+                self.logger.error("No content parts found in Gemini response")
+                return None
+
+            # تجميع النص من كل Part
+            generated_text = "".join([p.text for p in parts if hasattr(p, "text")])
+
+            return generated_text.strip() or None
+
         except Exception as e:
             self.logger.error(f"Error in Gemini generate_text: {str(e)}")
             return None
+
     
     def embed_text(self, text: str, document_type: str = None):
         """إنشاء تضمين النص باستخدام Gemini"""
@@ -126,11 +143,11 @@ class GeminiProvider(LLMInterface):
                 task_type=task_type
             )
             
-            if not result or not result.embedding:
+            if not result or 'embedding' not in result or not result['embedding']:
                 self.logger.error("Error while embedding text with Gemini")
                 return None
             
-            return result.embedding
+            return result['embedding']
             
         except Exception as e:
             self.logger.error(f"Error in Gemini embed_text: {str(e)}")
@@ -139,8 +156,8 @@ class GeminiProvider(LLMInterface):
     def construct_prompt(self, prompt: str, role: str):
         """بناء رسالة بتنسيق Gemini"""
         # تحويل الأدوار من تنسيق النظام إلى تنسيق Gemini
-        if role == GeminiEnums.MODEL.value:
-            gemini_role = GeminiEnums.MODEL.value
+        if role == GeminiEnums.ASSISTANT.value:
+            gemini_role = GeminiEnums.ASSISTANT.value
         else:
             gemini_role = GeminiEnums.USER.value
         
