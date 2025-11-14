@@ -1,9 +1,0 @@
-{
-    "postman.settings.dotenv-detection-notification-visibility": false,
-    "docwriter.style": "NumPy",
-    "cSpell.words": [
-        "fastapi",
-        "uvicorn"
-    ],
-    "python.languageServer": "Pylance"
-}
