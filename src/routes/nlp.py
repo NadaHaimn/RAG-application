@@ -1,5 +1,6 @@
-from fastapi import APIRouter, status, Request
+from fastapi import APIRouter, status, Request, Depends
 from fastapi.responses import JSONResponse
+from helpers.security import verify_api_key
 from routes.schemes.nlp import SearchRequest
 from models.ProjectModel import ProjectModel
 from controllers import NLPController
@@ -15,7 +16,12 @@ nlp_router = APIRouter(
 
 
 @nlp_router.post("/answer/{project_id}")
-async def answer_rag(request: Request, project_id: str, search_request: SearchRequest):
+async def answer_rag(
+    request: Request,
+    project_id: str,
+    search_request: SearchRequest,
+    api_key: str = Depends(verify_api_key)  # ← Security: API Key verification
+):
     # ─── Project ────────────────────────────────────
     project_model = await ProjectModel.create_instance(
         db_client=request.app.db_client

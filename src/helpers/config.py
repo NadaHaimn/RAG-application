@@ -31,8 +31,12 @@ class Settings(BaseSettings):
 
     PRIMARY_LANG: str = "ar"
     DEFAULT_LANG: str = "ar"
+    
+    API_KEY: str
     class Config:
         env_file = ".env"
+
+    
 
 def get_settings():
     return Settings()

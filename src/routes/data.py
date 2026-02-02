@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, UploadFile, status, Request, Form
 from fastapi.responses import JSONResponse
 import os
 from helpers.config import get_settings, Settings
+from helpers.security import verify_api_key
 from controllers import DataController, ProjectController, ProcessController, NLPController
 import aiofiles
 from models import ResponseSignal
@@ -29,8 +30,9 @@ async def ingest_data(
     chunk_size: Optional[int] = Form(default=100),
     overlap: Optional[int] = Form(default=20),
     do_reset: Optional[int] = Form(default=0),
-    do_index: Optional[int] = Form(default=1),  # بـ default يـ index فوراً بعد الـ upload والـ process
-    app_settings: Settings = Depends(get_settings)
+    do_index: Optional[int] = Form(default=1),
+    app_settings: Settings = Depends(get_settings),
+    api_key: str = Depends(verify_api_key)  # ← Security: API Key verification
 ):
     # ─── Step 1: Project ────────────────────────────
     project_model = await ProjectModel.create_instance(
